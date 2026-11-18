@@ -218,6 +218,7 @@ func (s *ZkService) EnrollFace(ctx context.Context, userID string) error {
 	if err != nil {
 		return fmt.Errorf("failed to dial device for face enrollment: %w", err)
 	}
+	defer rawConn.Close()
 
 	tcpConn := transport.NewTCPConn(rawConn, 4*time.Second)
 	sess := protocol.NewSession(tcpConn)
@@ -226,7 +227,6 @@ func (s *ZkService) EnrollFace(ctx context.Context, userID string) error {
 	defer cancel()
 
 	if err := sess.Connect(connCtx, uint32(s.Password)); err != nil {
-		rawConn.Close()
 		return fmt.Errorf("device authentication failed: %w", err)
 	}
 
@@ -245,20 +245,20 @@ func (s *ZkService) EnrollFace(ctx context.Context, userID string) error {
 
 	resp, err := sess.Do(ctx, protocol.CmdStartEnroll, req)
 	if err != nil {
-		rawConn.Close()
 		return fmt.Errorf("face enrollment trigger failed: %w", err)
 	}
 	if !resp.Command.IsACK() {
-		rawConn.Close()
 		return fmt.Errorf("device rejected face enrollment (code %v)", resp.Command)
 	}
 
-	// Keep the session open asynchronously for 45s so the terminal's camera capture UI
-	// remains active for the user to register their face without socket cancellation.
-	go func() {
-		defer rawConn.Close()
-		time.Sleep(45 * time.Second)
-	}()
+	// 3. Put device into 1:N matching / live screen capture state
+	_, _ = sess.Do(ctx, protocol.CmdStartVerify, nil)
+
+	// 4. Signal firmware to refresh screen state
+	_, _ = sess.Do(ctx, protocol.CmdRefreshData, nil)
+
+	// 5. Cleanly exit session so terminal UI is unlocked for interactive enrollment
+	_, _ = sess.Do(ctx, protocol.CmdExit, nil)
 
 	log.Printf("[ZK] Successfully activated face scan camera on %s for user %s (index 111)", addr, userID)
 	return nil
@@ -318,16 +318,24 @@ func (s *ZkService) DeleteFingerprintTemplate(ctx context.Context, userID string
 	return nil
 }
 
-// SubscribeEvents initiates a realtime event subscription.
+// SubscribeEvents initiates a realtime event subscription with a long-lived connection.
 func (s *ZkService) SubscribeEvents(ctx context.Context) (*zk.Subscription, error) {
-	dev, err := s.EnsureConnected(ctx)
+	addr := fmt.Sprintf("%s:%d", s.IP, s.Port)
+
+	// Use a 24-hour timeout for the event subscription so that inactivity timeouts
+	// in zkgo don't cause constant connection churn every 4 seconds.
+	subDev, err := zk.Dial(ctx, zk.Config{
+		Addr:     addr,
+		Password: uint32(s.Password),
+		Timeout:  24 * time.Hour,
+	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to dial device for event subscription: %w", err)
 	}
 
-	sub, err := dev.Subscribe(ctx, zk.AllEvents)
+	sub, err := subDev.Subscribe(ctx, zk.AllEvents)
 	if err != nil {
-		s.ResetConnection()
+		_ = subDev.Close()
 		return nil, fmt.Errorf("failed to subscribe to events: %w", err)
 	}
 	return sub, nil
