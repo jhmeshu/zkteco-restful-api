@@ -1,20 +1,27 @@
-# Use an official Python runtime as a parent image
-FROM python:3.10-slim
+# Build Stage
+FROM golang:1.24-alpine AS builder
 
-# Set the working directory to /app
 WORKDIR /app
 
-# Copy the current directory contents into the container at /app
-COPY . /app
+# Cache dependencies
+COPY go.mod go.sum ./
+RUN go mod download
 
-# Copy .env.production to .env
-COPY .env.production .env
+# Copy source code
+COPY . .
 
-# Install any needed packages specified in requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+# Compile static binary
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o zkteco-api ./cmd/api
 
-# Make port 80 available to the world outside this container
-EXPOSE 80
+# Final Minimal Runtime Stage
+FROM alpine:3.20
 
-# Run the app with Gunicorn
-CMD ["gunicorn", "-w", "2", "-b", "0.0.0.0:80", "app:app"]
+RUN apk --no-cache add ca-certificates tzdata
+WORKDIR /app
+
+COPY --from=builder /app/zkteco-api .
+COPY .env.example .env
+
+EXPOSE 4000
+
+ENTRYPOINT ["./zkteco-api"]

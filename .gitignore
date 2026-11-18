@@ -15,6 +15,10 @@ dist/
 build/
 *.egg-info/
 
+bin/
+*.exe
+devices.json
+
 .env
 *.log
 app.log

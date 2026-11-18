@@ -1,0 +1,16 @@
+[
+  {
+    "id": "dev-1",
+    "name": "Main SpeedFace Terminal",
+    "ip": "172.16.20.240",
+    "port": 4370,
+    "password": 123456
+  },
+  {
+    "id": "dev-2",
+    "name": "Secondary Terminal",
+    "ip": "172.16.20.188",
+    "port": 4370,
+    "password": 123456
+  }
+]
