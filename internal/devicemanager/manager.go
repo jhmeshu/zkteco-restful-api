@@ -67,6 +67,13 @@ func (m *DeviceManager) loadOrSeed() {
 	defer m.mu.Unlock()
 
 	data, err := os.ReadFile(m.storagePath)
+	if err != nil {
+		if parentData, parentErr := os.ReadFile("../" + m.storagePath); parentErr == nil {
+			data = parentData
+			err = nil
+			m.storagePath = "../" + m.storagePath
+		}
+	}
 	if err == nil && len(data) > 0 {
 		var items []DeviceItem
 		if err := json.Unmarshal(data, &items); err == nil && len(items) > 0 {

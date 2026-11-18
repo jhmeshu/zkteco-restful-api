@@ -20,9 +20,11 @@ type Config struct {
 }
 
 func LoadConfig() *Config {
-	// Load .env file if it exists, otherwise fall back to system environment variables
-	if err := godotenv.Load(); err != nil {
-		log.Println(".env file not found, reading from system environment")
+	// Load .env file if it exists, checking current directory and parent directory
+	if err := godotenv.Load(".env"); err != nil {
+		if err := godotenv.Load("../.env"); err != nil {
+			log.Println(".env file not found, reading from system environment")
+		}
 	}
 
 	devicePort, err := strconv.Atoi(getEnv("DEVICE_PORT", "4370"))
