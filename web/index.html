@@ -2,13 +2,40 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ZKTeco Multi-Device Manager</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#4f46e5">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>ZKTeco Fleet Manager</title>
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
   <style>
+    /* iOS smooth scrolling & hide scrollbar on device chips bar */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
     .pulse-dot {
       animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
     }
@@ -16,117 +43,169 @@
       0%, 100% { opacity: 1; transform: scale(1); }
       50% { opacity: .4; transform: scale(1.15); }
     }
+    /* Safe area padding for mobile notch and home bar */
+    .safe-top {
+      padding-top: env(safe-area-inset-top, 0px);
+    }
+    .safe-bottom {
+      padding-bottom: env(safe-area-inset-bottom, 16px);
+    }
+    /* Prevent iOS input tap zoom by keeping inputs >= 16px font-size */
+    input, select, textarea {
+      font-size: 16px !important;
+    }
+    @media (min-width: 640px) {
+      input, select, textarea {
+        font-size: 0.875rem !important; /* 14px on desktop */
+      }
+    }
   </style>
 </head>
-<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col font-sans">
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col font-sans antialiased selection:bg-indigo-500 selection:text-white">
 
-  <!-- Top Navbar -->
-  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-md shadow-indigo-200">
+  <!-- Top Sticky Navigation Bar -->
+  <header class="bg-white/95 backdrop-blur-md border-b border-slate-200 sticky top-0 z-30 shadow-xs safe-top">
+    <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-2">
+      <!-- Brand & Title -->
+      <div class="flex items-center gap-2.5 sm:gap-3 min-w-0">
+        <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-indigo-500 flex items-center justify-center text-white shadow-md shadow-indigo-200 shrink-0">
           <i data-lucide="cpu" class="w-5 h-5"></i>
         </div>
-        <div>
-          <h1 class="font-bold text-lg text-slate-900 leading-tight">ZKTeco Fleet Manager</h1>
-          <p class="text-xs text-slate-500">Multi-Device Biometric REST API</p>
+        <div class="min-w-0">
+          <div class="flex items-center gap-2">
+            <h1 class="font-bold text-sm sm:text-lg text-slate-900 leading-tight truncate">ZKTeco Fleet</h1>
+            <span id="headerDeviceCount" class="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100">
+              0 devices
+            </span>
+          </div>
+          <p class="text-[11px] sm:text-xs text-slate-500 truncate">Biometric REST Gateway</p>
         </div>
       </div>
 
-      <div class="flex items-center gap-3">
+      <!-- Action Buttons -->
+      <div class="flex items-center gap-1.5 sm:gap-3 shrink-0">
         <!-- Add Device Button -->
-        <button onclick="openAddDeviceModal()" class="flex items-center gap-2 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition border border-slate-300">
-          <i data-lucide="plus-circle" class="w-3.5 h-3.5 text-indigo-600"></i>
-          <span>Add Device</span>
+        <button 
+          onclick="openAddDeviceModal()" 
+          class="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 text-xs font-semibold rounded-xl transition border border-slate-300 shadow-xs"
+          title="Add New ZKTeco Terminal"
+        >
+          <i data-lucide="plus-circle" class="w-4 h-4 text-indigo-600"></i>
+          <span class="hidden xs:inline">Add Device</span>
+          <span class="xs:hidden">Add</span>
         </button>
 
-        <button onclick="refreshAll()" class="p-2 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition" title="Refresh All Data">
-          <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+        <!-- Refresh Button -->
+        <button 
+          id="refreshBtn" 
+          onclick="triggerRefresh()" 
+          class="p-2 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 active:scale-90 rounded-xl transition border border-transparent hover:border-slate-200" 
+          title="Refresh All Data"
+        >
+          <i data-lucide="refresh-cw" id="refreshIcon" class="w-4 h-4"></i>
         </button>
       </div>
     </div>
   </header>
 
-  <!-- Device Switcher Bar -->
-  <div class="bg-slate-100/80 border-b border-slate-200 py-3">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="flex items-center justify-between gap-4 overflow-x-auto pb-1">
-        <div class="flex items-center gap-2" id="deviceListBar">
-          <span class="text-xs text-slate-400">Loading devices...</span>
-        </div>
+  <!-- Horizontal Device Switcher Bar -->
+  <div class="bg-slate-100/90 border-b border-slate-200 py-2 sm:py-3 sticky top-14 sm:top-16 z-20 backdrop-blur-sm">
+    <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+      <div class="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5" id="deviceListBar">
+        <span class="text-xs text-slate-400 py-1">Loading terminals...</span>
       </div>
     </div>
   </div>
 
-  <!-- Main Content -->
-  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full space-y-6">
+  <!-- Main Container -->
+  <main class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 flex-1 w-full space-y-4 sm:space-y-6">
 
-    <!-- Active Device Stats Grid -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      <!-- Device Model Card -->
-      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow transition">
-        <div class="flex items-center justify-between text-slate-500 mb-2">
-          <span class="text-xs font-semibold uppercase tracking-wider">Active Device</span>
-          <span id="activeStatusPill" class="flex items-center gap-1.5 text-xs font-medium text-emerald-600">
+    <!-- Active Device Stats Grid: 2x2 on Mobile, 4x1 on Desktop -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
+      
+      <!-- Card 1: Active Terminal / Status -->
+      <div class="bg-white p-3.5 sm:p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
+        <div class="flex items-center justify-between text-slate-500 mb-1.5 sm:mb-2">
+          <span class="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-400">Terminal</span>
+          <span id="activeStatusPill" class="flex items-center gap-1 sm:gap-1.5 text-[11px] sm:text-xs font-semibold text-emerald-600">
             <span class="w-2 h-2 rounded-full bg-emerald-500 pulse-dot"></span>
             Online
           </span>
         </div>
-        <div id="deviceModel" class="text-xl font-bold text-slate-900 truncate">Loading...</div>
-        <div id="devicePlatform" class="text-xs text-slate-400 mt-1">-</div>
-      </div>
-
-      <!-- Serial Number Card -->
-      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow transition">
-        <div class="flex items-center justify-between text-slate-500 mb-2">
-          <span class="text-xs font-semibold uppercase tracking-wider">Serial Number</span>
-          <i data-lucide="hash" class="w-4 h-4 text-emerald-500"></i>
+        <div>
+          <div id="deviceModel" class="text-sm sm:text-lg font-bold text-slate-900 truncate" title="Device Model">Loading...</div>
+          <div id="devicePlatform" class="text-[11px] sm:text-xs text-slate-400 truncate mt-0.5">-</div>
         </div>
-        <div id="deviceSerial" class="text-lg font-bold text-slate-900 font-mono">Loading...</div>
-        <div id="deviceFirmware" class="text-xs text-slate-400 mt-1">-</div>
       </div>
 
-      <!-- IP Address Card -->
-      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow transition">
-        <div class="flex items-center justify-between text-slate-500 mb-2">
-          <span class="text-xs font-semibold uppercase tracking-wider">Network Address</span>
-          <i data-lucide="network" class="w-4 h-4 text-amber-500"></i>
-        </div>
-        <div id="deviceIP" class="text-lg font-bold text-slate-900 font-mono">Loading...</div>
-        <div id="devicePort" class="text-xs text-slate-400 mt-1">Port 4370</div>
-      </div>
-
-      <!-- Total Users Card -->
-      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow transition">
-        <div class="flex items-center justify-between text-slate-500 mb-2">
-          <span class="text-xs font-semibold uppercase tracking-wider">Enrolled Users</span>
-          <i data-lucide="users" class="w-4 h-4 text-blue-500"></i>
-        </div>
-        <div id="userCount" class="text-2xl font-bold text-indigo-600">0</div>
-        <div class="text-xs text-slate-400 mt-1">Users on this terminal</div>
-      </div>
-    </div>
-
-    <!-- Device Maintenance & Commands Toolbar -->
-    <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
-      <div class="flex items-center gap-3">
-        <div class="w-9 h-9 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center">
-          <i data-lucide="terminal" class="w-5 h-5 text-indigo-600"></i>
+      <!-- Card 2: Enrolled Users -->
+      <div class="bg-white p-3.5 sm:p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
+        <div class="flex items-center justify-between text-slate-500 mb-1.5 sm:mb-2">
+          <span class="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-400">Users</span>
+          <div class="w-6 h-6 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+            <i data-lucide="users" class="w-3.5 h-3.5"></i>
+          </div>
         </div>
         <div>
-          <h3 class="text-sm font-bold text-slate-900">Device Maintenance & Commands</h3>
-          <p class="text-xs text-slate-500">Execute hardware control and diagnostic maintenance routines</p>
+          <div id="userCount" class="text-xl sm:text-2xl font-bold text-indigo-600">0</div>
+          <div class="text-[11px] sm:text-xs text-slate-400 truncate mt-0.5">Enrolled on device</div>
         </div>
       </div>
 
-      <div class="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end">
+      <!-- Card 3: Network Address -->
+      <div class="bg-white p-3.5 sm:p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
+        <div class="flex items-center justify-between text-slate-500 mb-1.5 sm:mb-2">
+          <span class="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-400">Network IP</span>
+          <div class="w-6 h-6 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+            <i data-lucide="network" class="w-3.5 h-3.5"></i>
+          </div>
+        </div>
+        <div>
+          <div id="deviceIP" class="text-xs sm:text-base font-bold text-slate-900 font-mono truncate">Loading...</div>
+          <div id="devicePort" class="text-[11px] sm:text-xs text-slate-400 truncate mt-0.5">Port 4370</div>
+        </div>
+      </div>
+
+      <!-- Card 4: Serial Number -->
+      <div class="bg-white p-3.5 sm:p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
+        <div class="flex items-center justify-between text-slate-500 mb-1.5 sm:mb-2">
+          <span class="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-400">Serial No.</span>
+          <div class="w-6 h-6 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+            <i data-lucide="hash" class="w-3.5 h-3.5"></i>
+          </div>
+        </div>
+        <div>
+          <div id="deviceSerial" class="text-xs sm:text-base font-bold text-slate-900 font-mono truncate">Loading...</div>
+          <div id="deviceFirmware" class="text-[11px] sm:text-xs text-slate-400 truncate mt-0.5">-</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Device Maintenance & Quick Commands Toolbar -->
+    <div class="bg-white p-3.5 sm:p-5 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-xl bg-slate-100 text-indigo-600 flex items-center justify-center shrink-0">
+            <i data-lucide="sliders" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h3 class="text-xs sm:text-sm font-bold text-slate-900 leading-tight">Hardware Commands</h3>
+            <p class="text-[11px] text-slate-500 hidden sm:block">Control hardware power and diagnostic data routines</p>
+          </div>
+        </div>
+        <span class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Device Controls</span>
+      </div>
+
+      <!-- 4 Quick Action Buttons: 2x2 Grid on Mobile, 4x1 on Desktop -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
         <!-- Reboot -->
         <button 
           onclick="confirmDeviceAction('reboot')" 
           title="Restart the terminal hardware"
-          class="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl text-slate-700 bg-slate-100 hover:bg-slate-200 transition border border-slate-200"
+          class="flex items-center justify-center gap-2 py-2.5 px-3 text-xs font-semibold rounded-xl text-slate-700 bg-slate-50 hover:bg-slate-100 active:scale-95 transition border border-slate-200"
         >
-          <i data-lucide="rotate-cw" class="w-3.5 h-3.5 text-indigo-600"></i>
+          <i data-lucide="rotate-cw" class="w-3.5 h-3.5 text-indigo-600 shrink-0"></i>
           <span>Reboot</span>
         </button>
 
@@ -134,9 +213,9 @@
         <button 
           onclick="confirmDeviceAction('clean_cache')" 
           title="Reload internal memory, user and biometric cache"
-          class="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl text-sky-700 bg-sky-50 hover:bg-sky-100 transition border border-sky-200"
+          class="flex items-center justify-center gap-2 py-2.5 px-3 text-xs font-semibold rounded-xl text-sky-700 bg-sky-50 hover:bg-sky-100 active:scale-95 transition border border-sky-200"
         >
-          <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-sky-600"></i>
+          <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-sky-600 shrink-0"></i>
           <span>Cache Clean</span>
         </button>
 
@@ -144,69 +223,88 @@
         <button 
           onclick="confirmDeviceAction('clean_punches')" 
           title="Clear all stored attendance punches from terminal memory"
-          class="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl text-amber-700 bg-amber-50 hover:bg-amber-100 transition border border-amber-200"
+          class="flex items-center justify-center gap-2 py-2.5 px-3 text-xs font-semibold rounded-xl text-amber-700 bg-amber-50 hover:bg-amber-100 active:scale-95 transition border border-amber-200"
         >
-          <i data-lucide="file-minus" class="w-3.5 h-3.5 text-amber-600"></i>
-          <span>Data Clean</span>
+          <i data-lucide="file-minus" class="w-3.5 h-3.5 text-amber-600 shrink-0"></i>
+          <span>Clean Punches</span>
         </button>
 
         <!-- Data Wipe (Wipe Device) -->
         <button 
           onclick="confirmDeviceAction('wipe')" 
           title="DANGER: Wipe all users, biometrics, and records from terminal"
-          class="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl text-rose-700 bg-rose-50 hover:bg-rose-100 transition border border-rose-200"
+          class="flex items-center justify-center gap-2 py-2.5 px-3 text-xs font-semibold rounded-xl text-rose-700 bg-rose-50 hover:bg-rose-100 active:scale-95 transition border border-rose-200"
         >
-          <i data-lucide="trash-2" class="w-3.5 h-3.5 text-rose-600"></i>
+          <i data-lucide="trash-2" class="w-3.5 h-3.5 text-rose-600 shrink-0"></i>
           <span>Data Wipe</span>
         </button>
       </div>
     </div>
 
-    <!-- User Management Table Section -->
-    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-      <!-- Table Header & Controls -->
-      <div class="p-5 border-b border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div>
-          <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
-            <span>Terminal Users</span>
-            <span id="selectedDeviceBadge" class="text-xs font-normal text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">Device</span>
-          </h2>
-          <p class="text-xs text-slate-500">Manage biometric profiles stored in this terminal</p>
+    <!-- User Management Section -->
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+      <!-- Section Header & Search / Add Controls -->
+      <div class="p-3.5 sm:p-5 border-b border-slate-100 space-y-3">
+        <div class="flex items-center justify-between gap-2">
+          <div>
+            <h2 class="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
+              <span>Terminal Users</span>
+              <span id="selectedDeviceBadge" class="text-[11px] font-normal text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200 truncate max-w-[150px] sm:max-w-xs">Device</span>
+            </h2>
+            <p class="text-[11px] sm:text-xs text-slate-500">Manage biometric profiles stored in this terminal</p>
+          </div>
+          
+          <!-- Add User Button for Desktop -->
+          <button 
+            onclick="openAddUserModal()" 
+            class="hidden sm:flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white rounded-xl text-xs sm:text-sm font-semibold shadow-xs transition shrink-0"
+          >
+            <i data-lucide="user-plus" class="w-4 h-4"></i>
+            <span>Add User</span>
+          </button>
         </div>
 
-        <div class="flex items-center gap-3 w-full sm:w-auto">
-          <!-- Search Input -->
-          <div class="relative w-full sm:w-64">
+        <!-- Search & Mobile Add User Button Row -->
+        <div class="flex items-center gap-2">
+          <div class="relative flex-1">
             <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
             <input 
               type="text" 
               id="searchInput" 
               oninput="filterUsers()" 
               placeholder="Search by name or ID..." 
-              class="w-full pl-9 pr-4 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition"
+              class="w-full pl-9 pr-8 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition"
             >
+            <button 
+              id="clearSearchBtn" 
+              onclick="clearSearch()" 
+              class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
+            >
+              <i data-lucide="x" class="w-3.5 h-3.5"></i>
+            </button>
           </div>
 
-          <!-- Add User Button -->
+          <!-- Add User Button on Mobile -->
           <button 
             onclick="openAddUserModal()" 
-            class="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-medium shadow-sm transition whitespace-nowrap"
+            class="sm:hidden flex items-center justify-center gap-1.5 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white rounded-xl text-xs font-semibold shadow-xs transition shrink-0"
+            title="Add New User"
           >
             <i data-lucide="user-plus" class="w-4 h-4"></i>
-            <span>Add User</span>
+            <span>Add</span>
           </button>
         </div>
       </div>
 
-      <!-- Users Table -->
-      <div class="overflow-x-auto">
+      <!-- DESKTOP VIEW: Traditional High-Density Table (hidden on mobile) -->
+      <div class="hidden md:block overflow-x-auto">
         <table class="w-full text-left text-sm">
           <thead class="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200/80">
             <tr>
               <th class="py-3 px-6">User ID</th>
               <th class="py-3 px-6">Full Name</th>
-              <th class="py-3 px-6">Group</th>
-              <th class="py-3 px-6 text-right">Actions</th>
+              <th class="py-3 px-6">Group & Privilege</th>
+              <th class="py-3 px-6 text-right">Biometrics & Actions</th>
             </tr>
           </thead>
           <tbody id="usersTableBody" class="divide-y divide-slate-100 text-slate-700">
@@ -219,49 +317,65 @@
           </tbody>
         </table>
       </div>
+
+      <!-- MOBILE VIEW: Touch-Friendly Card List (hidden on desktop) -->
+      <div id="usersMobileList" class="md:hidden divide-y divide-slate-100">
+        <div class="p-8 text-center text-slate-400">
+          <i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2 text-indigo-500"></i>
+          Loading terminal users...
+        </div>
+      </div>
+
     </div>
   </main>
 
-  <!-- Add Device Modal -->
-  <div id="addDeviceModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
-    <div class="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-      <div class="p-6 border-b border-slate-100 flex items-center justify-between">
+  <!-- Mobile Bottom Spacing for Comfortable Scrolling -->
+  <div class="h-6 sm:h-8 safe-bottom"></div>
+
+  <!-- ADD DEVICE MODAL -->
+  <div id="addDeviceModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center hidden p-0 sm:p-4 transition-all">
+    <div class="bg-white rounded-t-3xl sm:rounded-2xl border border-slate-200 shadow-xl max-w-md w-full overflow-hidden max-h-[92vh] flex flex-col animate-in slide-in-from-bottom sm:zoom-in-95 duration-200">
+      
+      <div class="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between shrink-0">
         <div class="flex items-center gap-3">
           <div class="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
             <i data-lucide="plus-circle" class="w-5 h-5"></i>
           </div>
-          <h3 class="font-bold text-slate-900">Add New ZKTeco Device</h3>
+          <div>
+            <h3 class="font-bold text-sm sm:text-base text-slate-900">Add ZKTeco Terminal</h3>
+            <p class="text-[11px] text-slate-500">Connect a new biometric attendance device</p>
+          </div>
         </div>
-        <button onclick="closeAddDeviceModal()" class="text-slate-400 hover:text-slate-600">
+        <button onclick="closeAddDeviceModal()" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition">
           <i data-lucide="x" class="w-5 h-5"></i>
         </button>
       </div>
 
-      <form id="addDeviceForm" onsubmit="submitAddDevice(event)" class="p-6 space-y-4">
+      <form id="addDeviceForm" onsubmit="submitAddDevice(event)" class="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1">
         <div>
           <label class="block text-xs font-semibold text-slate-600 mb-1">Friendly Name</label>
-          <input type="text" id="devName" required placeholder="e.g. Back Gate or Floor 2 Turnstile" class="w-full px-3.5 py-2 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+          <input type="text" id="devName" required placeholder="e.g. SpeedFace Office Entrance" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-slate-50 focus:bg-white">
         </div>
         <div>
           <label class="block text-xs font-semibold text-slate-600 mb-1">IP Address</label>
-          <input type="text" id="devIP" required placeholder="e.g. 172.16.20.188" class="w-full px-3.5 py-2 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none font-mono">
+          <input type="text" id="devIP" required placeholder="e.g. 172.16.20.240" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none font-mono bg-slate-50 focus:bg-white">
         </div>
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="block text-xs font-semibold text-slate-600 mb-1">Port</label>
-            <input type="number" id="devPort" value="4370" required class="w-full px-3.5 py-2 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none font-mono">
+            <input type="number" id="devPort" value="4370" required class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none font-mono bg-slate-50 focus:bg-white">
           </div>
           <div>
-            <label class="block text-xs font-semibold text-slate-600 mb-1">Comm Password</label>
-            <input type="number" id="devPass" value="123456" class="w-full px-3.5 py-2 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none font-mono">
+            <label class="block text-xs font-semibold text-slate-600 mb-1">Comm Key / Password</label>
+            <input type="number" id="devPass" value="0" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none font-mono bg-slate-50 focus:bg-white">
           </div>
         </div>
 
-        <div class="pt-2 flex justify-end gap-3">
-          <button type="button" onclick="closeAddDeviceModal()" class="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition">
+        <div class="pt-2 flex justify-end gap-2.5 safe-bottom">
+          <button type="button" onclick="closeAddDeviceModal()" class="w-1/2 sm:w-auto px-4 py-2.5 text-xs sm:text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition">
             Cancel
           </button>
-          <button type="submit" id="saveDevBtn" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition shadow-sm flex items-center gap-2">
+          <button type="submit" id="saveDevBtn" class="w-1/2 sm:w-auto px-5 py-2.5 text-xs sm:text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-95 rounded-xl transition shadow-xs flex items-center justify-center gap-2">
             <span>Add Device</span>
           </button>
         </div>
@@ -269,126 +383,131 @@
     </div>
   </div>
 
-  <!-- Add User Modal -->
-  <div id="addUserModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
-    <div class="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-      <div class="p-6 border-b border-slate-100 flex items-center justify-between">
+  <!-- ADD USER MODAL -->
+  <div id="addUserModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center hidden p-0 sm:p-4 transition-all">
+    <div class="bg-white rounded-t-3xl sm:rounded-2xl border border-slate-200 shadow-xl max-w-md w-full overflow-hidden max-h-[92vh] flex flex-col animate-in slide-in-from-bottom sm:zoom-in-95 duration-200">
+      
+      <div class="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between shrink-0">
         <div class="flex items-center gap-3">
           <div class="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
             <i data-lucide="user-plus" class="w-5 h-5"></i>
           </div>
-          <h3 class="font-bold text-slate-900">Add New User</h3>
+          <div>
+            <h3 class="font-bold text-sm sm:text-base text-slate-900">Add New User</h3>
+            <p class="text-[11px] text-slate-500">Register employee profile on terminal</p>
+          </div>
         </div>
-        <button onclick="closeAddUserModal()" class="text-slate-400 hover:text-slate-600">
+        <button onclick="closeAddUserModal()" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition">
           <i data-lucide="x" class="w-5 h-5"></i>
         </button>
       </div>
 
-      <form id="addUserForm" onsubmit="submitAddUser(event)" class="p-6 space-y-4">
+      <form id="addUserForm" onsubmit="submitAddUser(event)" class="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1">
         <div>
-          <label class="block text-xs font-semibold text-slate-600 mb-1">User ID (PIN)</label>
-          <input type="number" id="newUserId" required placeholder="e.g. 152" class="w-full px-3.5 py-2 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+          <label class="block text-xs font-semibold text-slate-600 mb-1">User ID (Numeric PIN)</label>
+          <input type="number" id="newUserId" required placeholder="e.g. 130" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-slate-50 focus:bg-white font-mono">
         </div>
         <div>
           <label class="block text-xs font-semibold text-slate-600 mb-1">Full Name</label>
-          <input type="text" id="newUserName" required placeholder="e.g. Alex Morgan" class="w-full px-3.5 py-2 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+          <input type="text" id="newUserName" required placeholder="e.g. John Doe" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-slate-50 focus:bg-white">
         </div>
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="block text-xs font-semibold text-slate-600 mb-1">Privilege</label>
-            <select id="newUserPrivilege" class="w-full px-3.5 py-2 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white">
+            <select id="newUserPrivilege" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-slate-50 focus:bg-white">
               <option value="0">Normal User</option>
               <option value="1">Super Admin</option>
             </select>
           </div>
           <div>
             <label class="block text-xs font-semibold text-slate-600 mb-1">Group ID</label>
-            <input type="number" id="newUserGroup" value="1" class="w-full px-3.5 py-2 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            <input type="number" id="newUserGroup" value="1" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-slate-50 focus:bg-white">
           </div>
         </div>
         <div>
-          <label class="block text-xs font-semibold text-slate-600 mb-1">Card Number (Optional)</label>
-          <input type="number" id="newUserCard" placeholder="0" class="w-full px-3.5 py-2 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+          <label class="block text-xs font-semibold text-slate-600 mb-1">RFID Card Number (Optional)</label>
+          <input type="number" id="newUserCard" placeholder="0" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-slate-50 focus:bg-white font-mono">
         </div>
 
-        <div class="bg-indigo-50/60 border border-indigo-100 rounded-xl p-3">
-          <label class="flex items-center gap-2 cursor-pointer">
+        <div class="bg-indigo-50/70 border border-indigo-100 rounded-xl p-3">
+          <label class="flex items-center gap-2.5 cursor-pointer">
             <input type="checkbox" id="broadcastUserCheck" class="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500">
-            <span class="text-xs font-semibold text-indigo-950">Sync to all registered devices (Broadcast)</span>
+            <span class="text-xs font-bold text-indigo-950">Sync to all registered devices</span>
           </label>
-          <p class="text-[11px] text-slate-500 mt-1 pl-6">Automatically creates this user on all connected terminals.</p>
+          <p class="text-[11px] text-slate-500 mt-1 pl-6.5">Automatically propagates this user profile to all fleet terminals.</p>
         </div>
 
-        <div class="pt-2 flex justify-end gap-3">
-          <button type="button" onclick="closeAddUserModal()" class="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition">
+        <div class="pt-2 flex justify-end gap-2.5 safe-bottom">
+          <button type="button" onclick="closeAddUserModal()" class="w-1/2 sm:w-auto px-4 py-2.5 text-xs sm:text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition">
             Cancel
           </button>
-          <button type="submit" id="saveUserBtn" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition shadow-sm flex items-center gap-2">
-            <span>Save to Device</span>
+          <button type="submit" id="saveUserBtn" class="w-1/2 sm:w-auto px-5 py-2.5 text-xs sm:text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-95 rounded-xl transition shadow-xs flex items-center justify-center gap-2">
+            <span>Save User</span>
           </button>
         </div>
       </form>
     </div>
   </div>
 
-  <!-- Edit User Modal -->
-  <div id="editUserModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
-    <div class="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-      <div class="p-6 border-b border-slate-100 flex items-center justify-between">
+  <!-- EDIT USER MODAL -->
+  <div id="editUserModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center hidden p-0 sm:p-4 transition-all">
+    <div class="bg-white rounded-t-3xl sm:rounded-2xl border border-slate-200 shadow-xl max-w-md w-full overflow-hidden max-h-[92vh] flex flex-col animate-in slide-in-from-bottom sm:zoom-in-95 duration-200">
+      
+      <div class="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between shrink-0">
         <div class="flex items-center gap-3">
           <div class="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
             <i data-lucide="user-cog" class="w-5 h-5"></i>
           </div>
           <div>
-            <h3 class="font-bold text-slate-900">Edit User Profile</h3>
-            <p id="editUserSubtitle" class="text-xs text-slate-500">ID: -</p>
+            <h3 class="font-bold text-sm sm:text-base text-slate-900">Edit User Profile</h3>
+            <p id="editUserSubtitle" class="text-[11px] text-slate-500 font-mono">User ID: -</p>
           </div>
         </div>
-        <button onclick="closeEditUserModal()" class="text-slate-400 hover:text-slate-600">
+        <button onclick="closeEditUserModal()" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition">
           <i data-lucide="x" class="w-5 h-5"></i>
         </button>
       </div>
 
-      <form id="editUserForm" onsubmit="submitEditUser(event)" class="p-6 space-y-4">
+      <form id="editUserForm" onsubmit="submitEditUser(event)" class="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1">
         <div>
           <label class="block text-xs font-semibold text-slate-600 mb-1">User ID (Permanent)</label>
-          <input type="text" id="editUserId" disabled class="w-full px-3.5 py-2 text-sm border border-slate-200 rounded-xl bg-slate-100 text-slate-500 font-mono">
+          <input type="text" id="editUserId" disabled class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl bg-slate-100 text-slate-500 font-mono cursor-not-allowed">
         </div>
         <div>
           <label class="block text-xs font-semibold text-slate-600 mb-1">Full Name</label>
-          <input type="text" id="editUserName" required placeholder="Full Name" class="w-full px-3.5 py-2 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none">
+          <input type="text" id="editUserName" required placeholder="Full Name" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none bg-slate-50 focus:bg-white">
         </div>
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="block text-xs font-semibold text-slate-600 mb-1">Privilege</label>
-            <select id="editUserPrivilege" class="w-full px-3.5 py-2 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white">
+            <select id="editUserPrivilege" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none bg-slate-50 focus:bg-white">
               <option value="0">Normal User</option>
               <option value="1">Super Admin</option>
             </select>
           </div>
           <div>
             <label class="block text-xs font-semibold text-slate-600 mb-1">Group ID</label>
-            <input type="number" id="editUserGroup" value="1" class="w-full px-3.5 py-2 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none">
+            <input type="number" id="editUserGroup" value="1" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none bg-slate-50 focus:bg-white">
           </div>
         </div>
         <div>
           <label class="block text-xs font-semibold text-slate-600 mb-1">Card Number (Optional)</label>
-          <input type="number" id="editUserCard" placeholder="0" class="w-full px-3.5 py-2 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none">
+          <input type="number" id="editUserCard" placeholder="0" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none bg-slate-50 focus:bg-white font-mono">
         </div>
 
-        <div class="bg-blue-50/60 border border-blue-100 rounded-xl p-3">
-          <label class="flex items-center gap-2 cursor-pointer">
+        <div class="bg-blue-50/70 border border-blue-100 rounded-xl p-3">
+          <label class="flex items-center gap-2.5 cursor-pointer">
             <input type="checkbox" id="broadcastEditCheck" class="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500">
-            <span class="text-xs font-semibold text-blue-950">Update on all registered devices (Broadcast)</span>
+            <span class="text-xs font-bold text-blue-950">Update on all registered devices</span>
           </label>
-          <p class="text-[11px] text-slate-500 mt-1 pl-6">Syncs this name change across all active terminals.</p>
+          <p class="text-[11px] text-slate-500 mt-1 pl-6.5">Syncs name and privilege changes across all active terminals.</p>
         </div>
 
-        <div class="pt-2 flex justify-end gap-3">
-          <button type="button" onclick="closeEditUserModal()" class="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition">
+        <div class="pt-2 flex justify-end gap-2.5 safe-bottom">
+          <button type="button" onclick="closeEditUserModal()" class="w-1/2 sm:w-auto px-4 py-2.5 text-xs sm:text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition">
             Cancel
           </button>
-          <button type="submit" id="updateUserBtn" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition shadow-sm flex items-center gap-2">
+          <button type="submit" id="updateUserBtn" class="w-1/2 sm:w-auto px-5 py-2.5 text-xs sm:text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 active:scale-95 rounded-xl transition shadow-xs flex items-center justify-center gap-2">
             <span>Update User</span>
           </button>
         </div>
@@ -396,28 +515,29 @@
     </div>
   </div>
 
-  <!-- Fingerprint Enrollment Modal -->
-  <div id="enrollModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
-    <div class="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-      <div class="p-6 border-b border-slate-100 flex items-center justify-between">
+  <!-- FINGERPRINT SCAN MODAL -->
+  <div id="enrollModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center hidden p-0 sm:p-4 transition-all">
+    <div class="bg-white rounded-t-3xl sm:rounded-2xl border border-slate-200 shadow-xl max-w-md w-full overflow-hidden max-h-[92vh] flex flex-col animate-in slide-in-from-bottom sm:zoom-in-95 duration-200">
+      
+      <div class="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between shrink-0">
         <div class="flex items-center gap-3">
           <div class="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
             <i data-lucide="fingerprint" class="w-5 h-5"></i>
           </div>
           <div>
-            <h3 class="font-bold text-slate-900">Fingerprint Enrollment</h3>
-            <p id="enrollSubtitle" class="text-xs text-slate-500">User ID: -</p>
+            <h3 class="font-bold text-sm sm:text-base text-slate-900">Fingerprint Enrollment</h3>
+            <p id="enrollSubtitle" class="text-[11px] text-slate-500">User ID: -</p>
           </div>
         </div>
-        <button onclick="closeEnrollModal()" class="text-slate-400 hover:text-slate-600">
+        <button onclick="closeEnrollModal()" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition">
           <i data-lucide="x" class="w-5 h-5"></i>
         </button>
       </div>
 
-      <div class="p-6 space-y-4">
+      <div class="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1">
         <div>
           <label class="block text-xs font-semibold text-slate-600 mb-1">Select Finger</label>
-          <select id="fingerIndex" class="w-full px-3.5 py-2 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white">
+          <select id="fingerIndex" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-slate-50 focus:bg-white font-medium">
             <option value="0">Right Thumb (Index 0)</option>
             <option value="1">Right Index (Index 1)</option>
             <option value="2">Right Middle (Index 2)</option>
@@ -431,62 +551,66 @@
           </select>
         </div>
 
-        <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs text-slate-600 leading-relaxed">
-          <p class="font-semibold text-slate-800 mb-1">Instructions:</p>
-          When you click <strong>"Start Device Scan"</strong>, the terminal sensor will illuminate. Have the user place the selected finger on the scanner <strong>3 times</strong> until it beeps.
+        <div class="bg-emerald-50/50 border border-emerald-100 rounded-2xl p-4 text-xs text-slate-600 leading-relaxed">
+          <div class="flex items-center gap-2 text-emerald-800 font-bold mb-1">
+            <i data-lucide="info" class="w-4 h-4"></i>
+            <span>Scanner Workflow:</span>
+          </div>
+          When you tap <strong>"Start Device Scan"</strong>, the terminal sensor lights up. Have the user place the selected finger on the scanner <strong>3 times</strong> until it beeps confirmation.
         </div>
 
-        <div id="enrollStatus" class="hidden p-3 rounded-xl text-xs font-medium text-center"></div>
+        <div id="enrollStatus" class="hidden p-3.5 rounded-xl text-xs font-medium text-center"></div>
 
-        <div class="pt-2 flex justify-end gap-3">
-          <button type="button" onclick="closeEnrollModal()" class="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition">
+        <div class="pt-2 flex justify-end gap-2.5 safe-bottom">
+          <button type="button" onclick="closeEnrollModal()" class="w-1/2 sm:w-auto px-4 py-2.5 text-xs sm:text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition">
             Close
           </button>
-          <button type="button" id="startEnrollBtn" onclick="submitEnrollment()" class="px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition shadow-sm flex items-center gap-2">
+          <button type="button" id="startEnrollBtn" onclick="submitEnrollment()" class="w-1/2 sm:w-auto px-5 py-2.5 text-xs sm:text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 active:scale-95 rounded-xl transition shadow-xs flex items-center justify-center gap-2">
             <i data-lucide="scan" class="w-4 h-4"></i>
-            <span>Start Device Scan</span>
+            <span>Start Scan</span>
           </button>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Face Enrollment Modal -->
-  <div id="faceEnrollModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
-    <div class="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-      <div class="p-6 border-b border-slate-100 flex items-center justify-between">
+  <!-- FACE RECOGNITION SCAN MODAL -->
+  <div id="faceEnrollModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center hidden p-0 sm:p-4 transition-all">
+    <div class="bg-white rounded-t-3xl sm:rounded-2xl border border-slate-200 shadow-xl max-w-md w-full overflow-hidden max-h-[92vh] flex flex-col animate-in slide-in-from-bottom sm:zoom-in-95 duration-200">
+      
+      <div class="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between shrink-0">
         <div class="flex items-center gap-3">
           <div class="w-9 h-9 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
             <i data-lucide="scan-face" class="w-5 h-5"></i>
           </div>
           <div>
-            <h3 class="font-bold text-slate-900">Face Recognition Enrollment</h3>
-            <p id="faceEnrollSubtitle" class="text-xs text-slate-500">User ID: -</p>
+            <h3 class="font-bold text-sm sm:text-base text-slate-900">Face Scan Enrollment</h3>
+            <p id="faceEnrollSubtitle" class="text-[11px] text-slate-500">User ID: -</p>
           </div>
         </div>
-        <button onclick="closeFaceEnrollModal()" class="text-slate-400 hover:text-slate-600">
+        <button onclick="closeFaceEnrollModal()" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition">
           <i data-lucide="x" class="w-5 h-5"></i>
         </button>
       </div>
 
-      <div class="p-6 space-y-4">
-        <div class="flex flex-col items-center justify-center p-6 bg-slate-50 border border-slate-200 rounded-2xl text-center">
-          <div class="w-16 h-16 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center mb-3 shadow-inner">
-            <i data-lucide="camera" class="w-8 h-8"></i>
+      <div class="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1">
+        <div class="flex flex-col items-center justify-center p-5 sm:p-6 bg-slate-50 border border-slate-200 rounded-2xl text-center">
+          <div class="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center mb-3 shadow-inner">
+            <i data-lucide="camera" class="w-7 h-7 sm:w-8 sm:h-8"></i>
           </div>
-          <p class="text-sm font-semibold text-slate-800">SpeedFace Camera Capture</p>
+          <p class="text-sm font-bold text-slate-900">SpeedFace Camera Capture</p>
           <p class="text-xs text-slate-500 mt-1 max-w-xs">
-            Position the user in front of the terminal. The device will activate its camera to capture and register facial features.
+            Stand directly in front of the terminal. The device camera activates automatically to capture and train the 3D biometric template.
           </p>
         </div>
 
-        <div id="faceEnrollStatus" class="hidden p-3 rounded-xl text-xs font-medium text-center"></div>
+        <div id="faceEnrollStatus" class="hidden p-3.5 rounded-xl text-xs font-medium text-center"></div>
 
-        <div class="pt-2 flex justify-end gap-3">
-          <button type="button" onclick="closeFaceEnrollModal()" class="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition">
+        <div class="pt-2 flex justify-end gap-2.5 safe-bottom">
+          <button type="button" onclick="closeFaceEnrollModal()" class="w-1/2 sm:w-auto px-4 py-2.5 text-xs sm:text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition">
             Close
           </button>
-          <button type="button" id="startFaceBtn" onclick="submitFaceEnrollment()" class="px-4 py-2 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-xl transition shadow-sm flex items-center gap-2">
+          <button type="button" id="startFaceBtn" onclick="submitFaceEnrollment()" class="w-1/2 sm:w-auto px-5 py-2.5 text-xs sm:text-sm font-semibold text-white bg-purple-600 hover:bg-purple-700 active:scale-95 rounded-xl transition shadow-xs flex items-center justify-center gap-2">
             <i data-lucide="scan-face" class="w-4 h-4"></i>
             <span>Start Face Scan</span>
           </button>
@@ -495,36 +619,108 @@
     </div>
   </div>
 
-  <!-- Toast Notification -->
-  <div id="toast" class="fixed bottom-6 right-6 z-50 transform translate-y-16 opacity-0 transition-all duration-200 max-w-sm flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg border text-sm font-medium"></div>
+  <!-- ACTION CONFIRMATION MODAL (Reboot, Clean Cache, Clean Punches, Wipe) -->
+  <div id="actionModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center hidden p-0 sm:p-4 transition-all">
+    <div class="bg-white rounded-t-3xl sm:rounded-2xl border border-slate-200 shadow-xl max-w-md w-full overflow-hidden max-h-[92vh] flex flex-col animate-in slide-in-from-bottom sm:zoom-in-95 duration-200">
+      
+      <div class="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between shrink-0">
+        <div class="flex items-center gap-3">
+          <div id="actionModalIconWrap" class="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+            <i data-lucide="alert-triangle" id="actionModalIcon" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 id="actionModalTitle" class="font-bold text-sm sm:text-base text-slate-900">Confirm Hardware Action</h3>
+            <p id="actionModalDeviceName" class="text-[11px] text-slate-500">Terminal: -</p>
+          </div>
+        </div>
+        <button onclick="closeActionModal()" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
 
-  <!-- JavaScript Logic -->
+      <div class="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1">
+        <div id="actionModalDesc" class="text-xs sm:text-sm text-slate-600 leading-relaxed bg-slate-50 p-4 rounded-xl border border-slate-200">
+          Action description
+        </div>
+
+        <!-- Input for WIPE confirmation -->
+        <div id="actionModalTypeConfirmWrap" class="hidden space-y-1.5">
+          <label class="block text-xs font-bold text-rose-700">Type "WIPE" below to proceed:</label>
+          <input 
+            type="text" 
+            id="actionModalTypeInput" 
+            placeholder="WIPE" 
+            autocomplete="off" 
+            class="w-full px-3.5 py-2.5 border-2 border-rose-300 rounded-xl focus:ring-2 focus:ring-rose-500 focus:outline-none font-mono uppercase text-center font-bold text-rose-700"
+          >
+        </div>
+
+        <div class="pt-2 flex justify-end gap-2.5 safe-bottom">
+          <button type="button" onclick="closeActionModal()" class="w-1/2 sm:w-auto px-4 py-2.5 text-xs sm:text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition">
+            Cancel
+          </button>
+          <button type="button" id="actionModalConfirmBtn" onclick="executeDeviceAction()" class="w-1/2 sm:w-auto px-5 py-2.5 text-xs sm:text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-95 rounded-xl transition shadow-xs flex items-center justify-center gap-2">
+            <span>Confirm</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION: Centered & Mobile Responsive -->
+  <div 
+    id="toast" 
+    class="fixed bottom-4 sm:bottom-6 left-4 right-4 sm:left-auto sm:right-6 z-50 transform translate-y-20 opacity-0 transition-all duration-200 sm:max-w-md flex items-center gap-3 px-4 py-3 rounded-2xl shadow-xl border text-xs sm:text-sm font-medium pointer-events-none"
+  >
+  </div>
+
+  <!-- JAVASCRIPT APPLICATION LOGIC -->
   <script>
     let devices = [];
     let activeDeviceId = null;
     let allUsers = [];
     let activeEnrollUserId = null;
     let activeFaceUserId = null;
+    let pendingAction = null;
 
     document.addEventListener("DOMContentLoaded", () => {
       lucide.createIcons();
       refreshAll();
     });
 
+    // Mobile-optimized toast notifications
+    let toastTimeout = null;
     function showToast(message, isError = false) {
       const toast = document.getElementById("toast");
-      toast.className = `fixed bottom-6 right-6 z-50 transition-all duration-200 max-w-sm flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg border text-sm font-medium ${
-        isError ? 'bg-rose-50 text-rose-800 border-rose-200' : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+      if (toastTimeout) clearTimeout(toastTimeout);
+
+      toast.className = `fixed bottom-4 sm:bottom-6 left-4 right-4 sm:left-auto sm:right-6 z-50 transition-all duration-200 sm:max-w-md flex items-center gap-3 px-4 py-3.5 rounded-2xl shadow-xl border text-xs sm:text-sm font-semibold pointer-events-auto backdrop-blur-md ${
+        isError 
+          ? 'bg-rose-50/95 text-rose-900 border-rose-200 shadow-rose-900/10' 
+          : 'bg-emerald-50/95 text-emerald-900 border-emerald-200 shadow-emerald-900/10'
       }`;
+      
       toast.innerHTML = `
-        <i data-lucide="${isError ? 'alert-circle' : 'check-circle-2'}" class="w-5 h-5"></i>
-        <span>${message}</span>
+        <div class="shrink-0 w-6 h-6 rounded-lg ${isError ? 'bg-rose-100 text-rose-600' : 'bg-emerald-100 text-emerald-600'} flex items-center justify-center">
+          <i data-lucide="${isError ? 'alert-triangle' : 'check'}" class="w-4 h-4"></i>
+        </div>
+        <span class="flex-1 leading-snug">${escapeHtml(message)}</span>
       `;
       lucide.createIcons();
-      toast.classList.remove('translate-y-16', 'opacity-0');
-      setTimeout(() => {
-        toast.classList.add('translate-y-16', 'opacity-0');
+      toast.classList.remove('translate-y-20', 'opacity-0');
+
+      toastTimeout = setTimeout(() => {
+        toast.classList.add('translate-y-20', 'opacity-0');
       }, 4000);
+    }
+
+    async function triggerRefresh() {
+      const icon = document.getElementById("refreshIcon");
+      if (icon) icon.classList.add("animate-spin");
+      await refreshAll();
+      setTimeout(() => {
+        if (icon) icon.classList.remove("animate-spin");
+      }, 600);
     }
 
     async function refreshAll() {
@@ -540,9 +736,13 @@
         const json = await res.json();
         if (res.ok && json.data) {
           devices = json.data;
+          const countBadge = document.getElementById("headerDeviceCount");
+          if (countBadge) {
+            const onlineCount = devices.filter(d => d.online).length;
+            countBadge.textContent = `${devices.length} device${devices.length !== 1 ? 's' : ''} (${onlineCount} online)`;
+          }
           renderDeviceBar();
           if (!activeDeviceId && devices.length > 0) {
-            // Pick first online device or first device
             const onlineDev = devices.find(d => d.online) || devices[0];
             await selectDevice(onlineDev.id);
           }
@@ -555,23 +755,23 @@
     function renderDeviceBar() {
       const bar = document.getElementById("deviceListBar");
       if (!devices.length) {
-        bar.innerHTML = `<span class="text-xs text-slate-400">No devices configured. Click "+ Add Device"</span>`;
+        bar.innerHTML = `<span class="text-xs text-slate-400 py-1">No terminals configured. Tap "+ Add Device" to start.</span>`;
         return;
       }
 
       bar.innerHTML = devices.map(d => {
         const isSelected = d.id === activeDeviceId;
         return `
-          <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium cursor-pointer transition border ${
+          <div class="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold cursor-pointer transition shrink-0 border active:scale-95 select-none ${
             isSelected 
-              ? 'bg-white text-indigo-700 border-indigo-300 shadow-sm ring-1 ring-indigo-400/30' 
-              : 'bg-white/60 text-slate-600 hover:bg-white border-slate-200'
+              ? 'bg-white text-indigo-700 border-indigo-300 shadow-xs ring-2 ring-indigo-500/20' 
+              : 'bg-white/70 text-slate-600 hover:bg-white border-slate-200'
           }" onclick="selectDevice('${d.id}')">
-            <span class="w-2 h-2 rounded-full ${d.online ? 'bg-emerald-500 pulse-dot' : 'bg-rose-400'}"></span>
-            <span class="font-semibold">${escapeHtml(d.name)}</span>
+            <span class="w-2 h-2 rounded-full ${d.online ? 'bg-emerald-500 pulse-dot' : 'bg-rose-400'} shrink-0"></span>
+            <span class="truncate max-w-[130px] sm:max-w-[180px]">${escapeHtml(d.name)}</span>
             <span class="font-mono text-[11px] text-slate-400">(${d.ip})</span>
-            <button onclick="event.stopPropagation(); deleteDevice('${d.id}', '${escapeHtml(d.name)}')" class="ml-1 text-slate-300 hover:text-rose-500 p-0.5" title="Remove Device">
-              <i data-lucide="trash-2" class="w-3 h-3"></i>
+            <button onclick="event.stopPropagation(); deleteDevice('${d.id}', '${escapeHtml(d.name)}')" class="ml-0.5 text-slate-300 hover:text-rose-500 p-1 -mr-1" title="Remove Device">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
             </button>
           </div>
         `;
@@ -591,14 +791,14 @@
 
         const pill = document.getElementById("activeStatusPill");
         if (dev.online) {
-          pill.className = "flex items-center gap-1.5 text-xs font-medium text-emerald-600";
+          pill.className = "flex items-center gap-1 sm:gap-1.5 text-[11px] sm:text-xs font-semibold text-emerald-600";
           pill.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500 pulse-dot"></span>Online`;
           document.getElementById("deviceModel").textContent = dev.model || "SpeedFace Terminal";
           document.getElementById("devicePlatform").textContent = `Platform: ${dev.platform || '-'}`;
           document.getElementById("deviceSerial").textContent = dev.serial_number || "-";
           document.getElementById("deviceFirmware").textContent = dev.firmware || "-";
         } else {
-          pill.className = "flex items-center gap-1.5 text-xs font-medium text-rose-500";
+          pill.className = "flex items-center gap-1 sm:gap-1.5 text-[11px] sm:text-xs font-semibold text-rose-500";
           pill.innerHTML = `<span class="w-2 h-2 rounded-full bg-rose-400"></span>Offline`;
           document.getElementById("deviceModel").textContent = "Device Unreachable";
           document.getElementById("devicePlatform").textContent = dev.error || "Host unreachable";
@@ -612,7 +812,16 @@
 
     async function fetchUsersForDevice(deviceId) {
       const tbody = document.getElementById("usersTableBody");
-      tbody.innerHTML = `<tr><td colspan="4" class="py-8 text-center text-slate-400"><i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2 text-indigo-500"></i>Loading users...</td></tr>`;
+      const mobileList = document.getElementById("usersMobileList");
+
+      const loadingHTML = `
+        <div class="py-8 text-center text-slate-400">
+          <i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2 text-indigo-500"></i>
+          Loading users...
+        </div>
+      `;
+      tbody.innerHTML = `<tr><td colspan="4">${loadingHTML}</td></tr>`;
+      mobileList.innerHTML = loadingHTML;
       lucide.createIcons();
 
       try {
@@ -624,66 +833,151 @@
           document.getElementById("userCount").textContent = allUsers.length;
           renderUsers(allUsers);
         } else {
-          tbody.innerHTML = `<tr><td colspan="4" class="py-8 text-center text-rose-500">${json.message || 'Device is offline or unreachable.'}</td></tr>`;
+          const errMsg = json.message || 'Device is offline or unreachable.';
+          tbody.innerHTML = `<tr><td colspan="4" class="py-8 text-center text-rose-500 font-medium">${errMsg}</td></tr>`;
+          mobileList.innerHTML = `<div class="p-6 text-center text-rose-500 font-medium text-xs">${errMsg}</div>`;
           document.getElementById("userCount").textContent = "0";
         }
       } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="4" class="py-8 text-center text-rose-500">Error communicating with device.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="4" class="py-8 text-center text-rose-500 font-medium">Error communicating with device.</td></tr>`;
+        mobileList.innerHTML = `<div class="p-6 text-center text-rose-500 font-medium text-xs">Error communicating with device.</div>`;
         document.getElementById("userCount").textContent = "0";
       }
     }
 
     function renderUsers(users) {
       const tbody = document.getElementById("usersTableBody");
+      const mobileList = document.getElementById("usersMobileList");
+
       if (!users.length) {
-        tbody.innerHTML = `<tr><td colspan="4" class="py-8 text-center text-slate-400">No users found on this terminal.</td></tr>`;
+        const emptyHTML = `
+          <div class="py-10 text-center text-slate-400">
+            <i data-lucide="users" class="w-8 h-8 mx-auto mb-2 text-slate-300"></i>
+            <p class="text-xs sm:text-sm font-medium">No users found on this terminal.</p>
+          </div>
+        `;
+        tbody.innerHTML = `<tr><td colspan="4">${emptyHTML}</td></tr>`;
+        mobileList.innerHTML = emptyHTML;
+        lucide.createIcons();
         return;
       }
 
+      // Render Desktop View (Table rows)
       tbody.innerHTML = users.map(u => `
         <tr class="hover:bg-slate-50/80 transition">
-          <td class="py-3.5 px-6 font-mono font-bold text-slate-900">${u.id}</td>
-          <td class="py-3.5 px-6 font-medium text-slate-800">${escapeHtml(u.name)}</td>
-          <td class="py-3.5 px-6 text-slate-500">
-            <span class="px-2 py-0.5 rounded-md text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">Group ${u.groupId}</span>
+          <td class="py-3 px-6 font-mono font-bold text-slate-900">${u.id}</td>
+          <td class="py-3 px-6 font-semibold text-slate-800">${escapeHtml(u.name)}</td>
+          <td class="py-3 px-6">
+            <div class="flex items-center gap-1.5">
+              <span class="px-2 py-0.5 rounded-md text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">Group ${u.groupId || 1}</span>
+              ${u.privilege === 1 ? '<span class="px-2 py-0.5 rounded-md text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">Admin</span>' : ''}
+            </div>
           </td>
-          <td class="py-3.5 px-6 text-right">
-            <div class="flex items-center justify-end gap-2">
-              <button onclick="openEditUserModal('${u.id}', '${escapeHtml(u.name)}', ${u.groupId || 1}, ${u.privilege || 0}, ${u.card || 0})" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 transition">
+          <td class="py-3 px-6 text-right">
+            <div class="flex items-center justify-end gap-1.5">
+              <button onclick="openEditUserModal('${u.id}', '${escapeHtml(u.name)}', ${u.groupId || 1}, ${u.privilege || 0}, ${u.card || 0})" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 transition" title="Edit Profile">
                 <i data-lucide="edit-2" class="w-3.5 h-3.5"></i>
                 <span>Edit</span>
               </button>
-              <button onclick="openFaceEnrollModal('${u.id}', '${escapeHtml(u.name)}')" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 transition">
+              <button onclick="openFaceEnrollModal('${u.id}', '${escapeHtml(u.name)}')" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 transition" title="Scan Face via SpeedFace Camera">
                 <i data-lucide="scan-face" class="w-3.5 h-3.5"></i>
-                <span>Scan Face</span>
+                <span>Face</span>
               </button>
-              <button onclick="openEnrollModal('${u.id}', '${escapeHtml(u.name)}')" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition">
+              <button onclick="openEnrollModal('${u.id}', '${escapeHtml(u.name)}')" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition" title="Scan Fingerprint">
                 <i data-lucide="fingerprint" class="w-3.5 h-3.5"></i>
-                <span>Scan Finger</span>
+                <span>Finger</span>
               </button>
-              <button onclick="deleteUser('${u.id}', '${escapeHtml(u.name)}')" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-500 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 transition">
+              <button onclick="deleteUser('${u.id}', '${escapeHtml(u.name)}')" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-500 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 transition" title="Delete User">
                 <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-                <span>Delete</span>
               </button>
             </div>
           </td>
         </tr>
       `).join('');
+
+      // Render Mobile View (Touch-Optimized Cards)
+      mobileList.innerHTML = users.map(u => `
+        <div class="p-3.5 space-y-3 bg-white">
+          <!-- Top Row: Avatar/ID, Name, and Badges -->
+          <div class="flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2.5 min-w-0">
+              <div class="w-9 h-9 rounded-xl bg-slate-100 text-indigo-700 font-mono font-bold text-xs flex items-center justify-center shrink-0 border border-slate-200">
+                ${u.id}
+              </div>
+              <div class="min-w-0">
+                <h4 class="font-bold text-sm text-slate-900 truncate leading-tight">${escapeHtml(u.name)}</h4>
+                <div class="flex items-center gap-1.5 mt-0.5">
+                  <span class="text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">Group ${u.groupId || 1}</span>
+                  ${u.privilege === 1 ? '<span class="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">Admin</span>' : ''}
+                </div>
+              </div>
+            </div>
+
+            <!-- Quick Delete Button -->
+            <button 
+              onclick="deleteUser('${u.id}', '${escapeHtml(u.name)}')" 
+              class="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 active:scale-90 rounded-xl transition border border-transparent hover:border-rose-200 shrink-0"
+              title="Delete User"
+            >
+              <i data-lucide="trash-2" class="w-4 h-4"></i>
+            </button>
+          </div>
+
+          <!-- Bottom Action Buttons Grid: 3 Buttons on Mobile with Big Tap Targets -->
+          <div class="grid grid-cols-3 gap-1.5">
+            <button 
+              onclick="openEditUserModal('${u.id}', '${escapeHtml(u.name)}', ${u.groupId || 1}, ${u.privilege || 0}, ${u.card || 0})" 
+              class="flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl text-xs font-semibold bg-blue-50 text-blue-700 active:bg-blue-100 border border-blue-200 transition active:scale-95"
+            >
+              <i data-lucide="edit-2" class="w-3.5 h-3.5 shrink-0"></i>
+              <span>Edit</span>
+            </button>
+
+            <button 
+              onclick="openFaceEnrollModal('${u.id}', '${escapeHtml(u.name)}')" 
+              class="flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl text-xs font-semibold bg-purple-50 text-purple-700 active:bg-purple-100 border border-purple-200 transition active:scale-95"
+            >
+              <i data-lucide="scan-face" class="w-3.5 h-3.5 shrink-0"></i>
+              <span>Face</span>
+            </button>
+
+            <button 
+              onclick="openEnrollModal('${u.id}', '${escapeHtml(u.name)}')" 
+              class="flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-700 active:bg-emerald-100 border border-emerald-200 transition active:scale-95"
+            >
+              <i data-lucide="fingerprint" class="w-3.5 h-3.5 shrink-0"></i>
+              <span>Finger</span>
+            </button>
+          </div>
+        </div>
+      `).join('');
+
       lucide.createIcons();
     }
 
     function filterUsers() {
-      const q = document.getElementById("searchInput").value.toLowerCase();
+      const q = document.getElementById("searchInput").value.toLowerCase().trim();
+      const clearBtn = document.getElementById("clearSearchBtn");
+      if (clearBtn) {
+        clearBtn.classList.toggle("hidden", q.length === 0);
+      }
       const filtered = allUsers.filter(u => 
         u.name.toLowerCase().includes(q) || u.id.toString().toLowerCase().includes(q)
       );
       renderUsers(filtered);
     }
 
+    function clearSearch() {
+      const input = document.getElementById("searchInput");
+      input.value = "";
+      filterUsers();
+      input.focus();
+    }
+
+    // Modal helpers
     function openAddDeviceModal() {
       document.getElementById("addDeviceModal").classList.remove("hidden");
     }
-
     function closeAddDeviceModal() {
       document.getElementById("addDeviceModal").classList.add("hidden");
       document.getElementById("addDeviceForm").reset();
@@ -693,9 +987,11 @@
       e.preventDefault();
       const btn = document.getElementById("saveDevBtn");
       btn.disabled = true;
+      btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>Adding...</span>`;
+      lucide.createIcons();
 
-      const name = document.getElementById("devName").value;
-      const ip = document.getElementById("devIP").value;
+      const name = document.getElementById("devName").value.trim();
+      const ip = document.getElementById("devIP").value.trim();
       const port = parseInt(document.getElementById("devPort").value, 10) || 4370;
       const password = parseInt(document.getElementById("devPass").value, 10) || 0;
 
@@ -708,31 +1004,32 @@
 
         const json = await res.json();
         if (res.ok) {
-          showToast(`Device "${name}" added!`);
+          showToast(`Terminal "${name}" added!`);
           closeAddDeviceModal();
           await fetchDevices();
           if (json.data && json.data.id) {
             await selectDevice(json.data.id);
           }
         } else {
-          showToast(json.error || "Failed to add device", true);
+          showToast(json.error || json.message || "Failed to add device", true);
         }
       } catch (err) {
         showToast("Error communicating with server", true);
       } finally {
         btn.disabled = false;
+        btn.innerHTML = `<span>Add Device</span>`;
       }
     }
 
     async function deleteDevice(devId, name) {
-      if (!confirm(`Are you sure you want to remove device "${name}" from this manager?`)) {
+      if (!confirm(`Are you sure you want to remove terminal "${name}"?`)) {
         return;
       }
 
       try {
         const res = await fetch(`/devices/${devId}`, { method: "DELETE" });
         if (res.ok) {
-          showToast(`Device "${name}" removed`);
+          showToast(`Terminal "${name}" removed`);
           if (activeDeviceId === devId) {
             activeDeviceId = null;
           }
@@ -745,44 +1042,94 @@
       }
     }
 
-    async function confirmDeviceAction(action) {
+    // Hardware Actions via Mobile-Friendly Custom Modal
+    function confirmDeviceAction(action) {
       if (!activeDeviceId) {
-        showToast("Please select an active device first", true);
+        showToast("Please select an active terminal first", true);
         return;
       }
 
       const dev = devices.find(d => d.id === activeDeviceId);
       const devName = dev ? dev.name : activeDeviceId;
+      pendingAction = action;
 
-      let promptMsg = "";
-      let requiresTypeConfirm = false;
+      const titleEl = document.getElementById("actionModalTitle");
+      const devEl = document.getElementById("actionModalDeviceName");
+      const descEl = document.getElementById("actionModalDesc");
+      const confirmBtn = document.getElementById("actionModalConfirmBtn");
+      const typeWrap = document.getElementById("actionModalTypeConfirmWrap");
+      const typeInput = document.getElementById("actionModalTypeInput");
+      const iconWrap = document.getElementById("actionModalIconWrap");
+      const icon = document.getElementById("actionModalIcon");
+
+      devEl.textContent = `Terminal: ${devName} (${dev ? dev.ip : ''})`;
+      typeWrap.classList.add("hidden");
+      typeInput.value = "";
 
       switch (action) {
         case "reboot":
-          promptMsg = `Are you sure you want to REBOOT terminal "${devName}"?\n\nThe hardware will restart and be temporarily unreachable for ~30 seconds.`;
+          titleEl.textContent = "Reboot Terminal";
+          iconWrap.className = "w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center";
+          icon.setAttribute("data-lucide", "rotate-cw");
+          descEl.innerHTML = `Are you sure you want to <strong>restart</strong> this terminal?<br><br>The hardware will reboot and be temporarily unreachable for ~30 seconds.`;
+          confirmBtn.className = "w-1/2 sm:w-auto px-5 py-2.5 text-xs sm:text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-95 rounded-xl transition shadow-xs flex items-center justify-center gap-2";
+          confirmBtn.innerHTML = `<span>Reboot Device</span>`;
           break;
+
         case "clean_cache":
-          promptMsg = `Refresh internal memory, user records, and biometric cache on "${devName}"?`;
+          titleEl.textContent = "Refresh Cache";
+          iconWrap.className = "w-9 h-9 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center";
+          icon.setAttribute("data-lucide", "refresh-cw");
+          descEl.innerHTML = `Reload internal RAM, user profiles, and biometric cache on this terminal without rebooting.`;
+          confirmBtn.className = "w-1/2 sm:w-auto px-5 py-2.5 text-xs sm:text-sm font-semibold text-white bg-sky-600 hover:bg-sky-700 active:scale-95 rounded-xl transition shadow-xs flex items-center justify-center gap-2";
+          confirmBtn.innerHTML = `<span>Clean Cache</span>`;
           break;
+
         case "clean_punches":
-          promptMsg = `ATTENTION: Are you sure you want to clean all attendance punches on "${devName}"?\n\nAll stored check-in logs will be permanently deleted from the terminal memory.`;
+          titleEl.textContent = "Clean Attendance Punches";
+          iconWrap.className = "w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center";
+          icon.setAttribute("data-lucide", "file-minus");
+          descEl.innerHTML = `<strong>Attention:</strong> All stored attendance punches in the terminal memory will be cleared.<br><br>Users and biometric templates will NOT be deleted.`;
+          confirmBtn.className = "w-1/2 sm:w-auto px-5 py-2.5 text-xs sm:text-sm font-semibold text-white bg-amber-600 hover:bg-amber-700 active:scale-95 rounded-xl transition shadow-xs flex items-center justify-center gap-2";
+          confirmBtn.innerHTML = `<span>Clear Punches</span>`;
           break;
+
         case "wipe":
-          promptMsg = `⚠️ CRITICAL DANGER: Complete Data Wipe on "${devName}".\n\nThis will permanently erase:\n- ALL enrolled users\n- ALL fingerprint and facial biometric templates\n- ALL attendance punch logs\n\nType 'WIPE' to confirm this destructive action:`;
-          requiresTypeConfirm = true;
+          titleEl.textContent = "⚠️ Critical Data Wipe";
+          iconWrap.className = "w-9 h-9 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center";
+          icon.setAttribute("data-lucide", "trash-2");
+          descEl.innerHTML = `<strong class="text-rose-700">DANGER: Complete Data Wipe</strong><br><br>This will permanently erase:<br>• ALL enrolled users<br>• ALL fingerprint & facial biometric templates<br>• ALL attendance punches`;
+          typeWrap.classList.remove("hidden");
+          confirmBtn.className = "w-1/2 sm:w-auto px-5 py-2.5 text-xs sm:text-sm font-semibold text-white bg-rose-600 hover:bg-rose-700 active:scale-95 rounded-xl transition shadow-xs flex items-center justify-center gap-2";
+          confirmBtn.innerHTML = `<span>Wipe Terminal</span>`;
           break;
       }
 
-      if (requiresTypeConfirm) {
-        const input = prompt(promptMsg);
-        if (input !== "WIPE") {
-          if (input !== null) showToast("Wipe cancelled: confirmation text did not match", true);
+      lucide.createIcons();
+      document.getElementById("actionModal").classList.remove("hidden");
+    }
+
+    function closeActionModal() {
+      document.getElementById("actionModal").classList.add("hidden");
+      pendingAction = null;
+    }
+
+    async function executeDeviceAction() {
+      if (!pendingAction || !activeDeviceId) return;
+
+      if (pendingAction === "wipe") {
+        const inputVal = document.getElementById("actionModalTypeInput").value.trim();
+        if (inputVal !== "WIPE") {
+          showToast("Confirmation did not match: type WIPE to proceed", true);
           return;
         }
-      } else {
-        if (!confirm(promptMsg)) return;
       }
 
+      const action = pendingAction;
+      const dev = devices.find(d => d.id === activeDeviceId);
+      const devName = dev ? dev.name : activeDeviceId;
+
+      closeActionModal();
       showToast(`Executing ${action.replace('_', ' ')} on ${devName}...`);
 
       try {
@@ -809,10 +1156,10 @@
       }
     }
 
+    // Add User
     function openAddUserModal() {
       document.getElementById("addUserModal").classList.remove("hidden");
     }
-
     function closeAddUserModal() {
       document.getElementById("addUserModal").classList.add("hidden");
       document.getElementById("addUserForm").reset();
@@ -826,7 +1173,7 @@
       lucide.createIcons();
 
       const userId = parseInt(document.getElementById("newUserId").value, 10);
-      const name = document.getElementById("newUserName").value;
+      const name = document.getElementById("newUserName").value.trim();
       const privilege = parseInt(document.getElementById("newUserPrivilege").value, 10);
       const groupId = parseInt(document.getElementById("newUserGroup").value, 10);
       const card = parseInt(document.getElementById("newUserCard").value, 10) || 0;
@@ -846,7 +1193,7 @@
 
         const json = await res.json();
         if (res.ok) {
-          showToast(broadcast ? "User synced to all devices!" : "User added to terminal!");
+          showToast(broadcast ? "User synced to all devices!" : "User saved to terminal!");
           closeAddUserModal();
           await fetchUsersForDevice(activeDeviceId);
         } else {
@@ -856,12 +1203,13 @@
         showToast("Error connecting to server", true);
       } finally {
         btn.disabled = false;
-        btn.innerHTML = `<span>Save to Device</span>`;
+        btn.innerHTML = `<span>Save User</span>`;
       }
     }
 
+    // Delete User
     async function deleteUser(userId, name) {
-      if (!confirm(`Are you sure you want to delete user "${name}" (ID: ${userId}) from this terminal?`)) {
+      if (!confirm(`Are you sure you want to delete user "${name}" (ID: ${userId})?`)) {
         return;
       }
 
@@ -870,7 +1218,7 @@
         const json = await res.json();
 
         if (res.ok) {
-          showToast(`User ${name} deleted successfully`);
+          showToast(`User "${name}" deleted`);
           await fetchUsersForDevice(activeDeviceId);
         } else {
           showToast(json.message || "Failed to delete user", true);
@@ -880,6 +1228,7 @@
       }
     }
 
+    // Fingerprint Enrollment
     function openEnrollModal(userId, name) {
       activeEnrollUserId = userId;
       document.getElementById("enrollSubtitle").textContent = `Enrolling finger for: ${name} (ID: ${userId})`;
@@ -899,9 +1248,9 @@
       const fingerIdx = parseInt(document.getElementById("fingerIndex").value, 10);
 
       btn.disabled = true;
-      btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>Listening for scans...</span>`;
-      statusDiv.className = "p-3 rounded-xl text-xs font-medium text-center bg-amber-50 text-amber-800 border border-amber-200 block";
-      statusDiv.textContent = "Terminal is waiting! Place finger on device sensor 3 times now...";
+      btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>Listening...</span>`;
+      statusDiv.className = "p-3.5 rounded-xl text-xs font-semibold text-center bg-amber-50 text-amber-800 border border-amber-200 block";
+      statusDiv.textContent = "Scanner ready! Place finger on sensor 3 times until it beeps...";
       lucide.createIcons();
 
       try {
@@ -913,33 +1262,34 @@
 
         const json = await res.json();
         if (res.ok) {
-          statusDiv.className = "p-3 rounded-xl text-xs font-medium text-center bg-emerald-50 text-emerald-800 border border-emerald-200 block";
+          statusDiv.className = "p-3.5 rounded-xl text-xs font-semibold text-center bg-emerald-50 text-emerald-800 border border-emerald-200 block";
           statusDiv.textContent = "Fingerprint enrolled successfully!";
           showToast("Fingerprint enrolled successfully!");
           setTimeout(closeEnrollModal, 2000);
         } else {
-          statusDiv.className = "p-3 rounded-xl text-xs font-medium text-center bg-rose-50 text-rose-800 border border-rose-200 block";
+          statusDiv.className = "p-3.5 rounded-xl text-xs font-semibold text-center bg-rose-50 text-rose-800 border border-rose-200 block";
           statusDiv.textContent = json.message || "Enrollment timed out or was cancelled.";
           showToast("Enrollment failed or timed out", true);
         }
       } catch (err) {
-        statusDiv.className = "p-3 rounded-xl text-xs font-medium text-center bg-rose-50 text-rose-800 border border-rose-200 block";
+        statusDiv.className = "p-3.5 rounded-xl text-xs font-semibold text-center bg-rose-50 text-rose-800 border border-rose-200 block";
         statusDiv.textContent = "Error communicating with terminal.";
         showToast("Enrollment error", true);
       } finally {
         btn.disabled = false;
-        btn.innerHTML = `<i data-lucide="scan" class="w-4 h-4"></i><span>Start Device Scan</span>`;
+        btn.innerHTML = `<i data-lucide="scan" class="w-4 h-4"></i><span>Start Scan</span>`;
         lucide.createIcons();
       }
     }
 
+    // Edit User
     function openEditUserModal(userId, name, groupId, privilege, card) {
       document.getElementById("editUserId").value = userId;
       document.getElementById("editUserName").value = name || "";
       document.getElementById("editUserGroup").value = groupId || 1;
       document.getElementById("editUserPrivilege").value = privilege || 0;
       document.getElementById("editUserCard").value = card || 0;
-      document.getElementById("editUserSubtitle").textContent = `Editing profile for User ID: ${userId}`;
+      document.getElementById("editUserSubtitle").textContent = `Editing profile: ${name} (ID: ${userId})`;
       document.getElementById("editUserModal").classList.remove("hidden");
     }
 
@@ -956,7 +1306,7 @@
       lucide.createIcons();
 
       const userId = document.getElementById("editUserId").value;
-      const name = document.getElementById("editUserName").value;
+      const name = document.getElementById("editUserName").value.trim();
       const privilege = parseInt(document.getElementById("editUserPrivilege").value, 10);
       const groupId = parseInt(document.getElementById("editUserGroup").value, 10);
       const card = parseInt(document.getElementById("editUserCard").value, 10) || 0;
@@ -979,7 +1329,7 @@
 
         const json = await res.json();
         if (res.ok) {
-          showToast(broadcast ? "User updated across all devices!" : `User "${name}" updated successfully!`);
+          showToast(broadcast ? "User updated across all terminals!" : `User "${name}" updated!`);
           closeEditUserModal();
           await fetchUsersForDevice(activeDeviceId);
         } else {
@@ -993,6 +1343,7 @@
       }
     }
 
+    // Face Scan Enrollment
     function openFaceEnrollModal(userId, name) {
       activeFaceUserId = userId;
       document.getElementById("faceEnrollSubtitle").textContent = `Enrolling face for: ${name} (ID: ${userId})`;
@@ -1012,8 +1363,8 @@
 
       btn.disabled = true;
       btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>Camera active...</span>`;
-      statusDiv.className = "p-3 rounded-xl text-xs font-medium text-center bg-purple-50 text-purple-800 border border-purple-200 block";
-      statusDiv.textContent = "Terminal camera is on! Stand in front of terminal and look at the screen...";
+      statusDiv.className = "p-3.5 rounded-xl text-xs font-semibold text-center bg-purple-50 text-purple-800 border border-purple-200 block";
+      statusDiv.textContent = "Camera active! Stand in front of terminal and look into the camera...";
       lucide.createIcons();
 
       try {
@@ -1025,17 +1376,17 @@
 
         const json = await res.json();
         if (res.ok) {
-          statusDiv.className = "p-3 rounded-xl text-xs font-medium text-center bg-emerald-50 text-emerald-800 border border-emerald-200 block";
-          statusDiv.textContent = "Face scan command sent! Complete scanning at the terminal screen.";
+          statusDiv.className = "p-3.5 rounded-xl text-xs font-semibold text-center bg-emerald-50 text-emerald-800 border border-emerald-200 block";
+          statusDiv.textContent = "Face scan command sent! Complete scanning at terminal camera.";
           showToast("Terminal camera activated for face scan!");
           setTimeout(closeFaceEnrollModal, 3500);
         } else {
-          statusDiv.className = "p-3 rounded-xl text-xs font-medium text-center bg-rose-50 text-rose-800 border border-rose-200 block";
+          statusDiv.className = "p-3.5 rounded-xl text-xs font-semibold text-center bg-rose-50 text-rose-800 border border-rose-200 block";
           statusDiv.textContent = json.message || "Failed to trigger face scan.";
           showToast(json.message || "Face scan failed", true);
         }
       } catch (err) {
-        statusDiv.className = "p-3 rounded-xl text-xs font-medium text-center bg-rose-50 text-rose-800 border border-rose-200 block";
+        statusDiv.className = "p-3.5 rounded-xl text-xs font-semibold text-center bg-rose-50 text-rose-800 border border-rose-200 block";
         statusDiv.textContent = "Error communicating with terminal.";
         showToast("Error triggering face scan", true);
       } finally {
@@ -1047,7 +1398,7 @@
 
     function escapeHtml(str) {
       if (!str) return '';
-      return str.replace(/[&<>'"]/g, 
+      return String(str).replace(/[&<>'"]/g, 
         tag => ({
           '&': '&amp;',
           '<': '&lt;',
